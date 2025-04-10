@@ -6,7 +6,6 @@ import torch
 import subprocess
 import sys
 import torch.nn as nn
-import gradio as gr
 from datetime import datetime
 from typing import Literal
 from diffusers.optimization import get_scheduler
@@ -37,20 +36,11 @@ from diffusers import (
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-try:
-    from modules.scripts import basedir
-    from modules import shared
-    standalone = False
-    path_root = basedir()
-    path_trainer = os.path.join(path_root, "trainer")
-    lora_dir = shared.cmd_opts.lora_dir
-except:
-    path_root = Path.cwd()
-    lora_dir = os.path.join(path_root,"output")
-    path_root = os.path.join(path_root, "traintrain")
-    path_trainer = os.path.join(path_root, "trainer")
-    standalone = True
-    from modules.launch_utils import args
+# Standalone mode assumed for CLI conversion
+path_root = Path(__file__).parent.parent # Assumes trainer.py is in trainer/ directory
+lora_dir = os.path.join(path_root.parent,"output") # Default output dir relative to project root
+path_trainer = os.path.join(path_root, "trainer")
+# Note: Command line arguments will be handled by cli.py, replacing launch_utils.args
 
 all_configs = []
 
@@ -75,11 +65,8 @@ class Trainer():
             paths = jsononly
             jsononly = False
         else:
-            if standalone:
-                paths = [args.models_dir, args.ckpt_dir, args.vae_dir, args.lora_dir]
-            else:
-                paths = None
-                
+            # Paths will be determined/passed via CLI arguments later
+            paths = None
         self.values = values
         self.mode = mode
         self.use_8bit = False
@@ -244,13 +231,9 @@ class Trainer():
                 self.network_resume = self.diff_load_1st_pass
 
     def sd_typer(self, ver = None):
+        # WebUI specific model detection removed. Version must be passed via 'ver'.
         if ver is None:
-            model = shared.sd_model
-            self.is_sd1 = type(model).__name__ == "StableDiffusion" or getattr(model,'is_sd1', False)
-            self.is_sd2 = type(model).__name__ == "StableDiffusion2" or getattr(model,'is_sd2', False)
-            self.is_sdxl = type(model).__name__ == "StableDiffusionXL" or getattr(model,'is_sdxl', False)
-            self.is_sd3 = type(model).__name__ == "StableDiffusion3" or getattr(model,'is_sd2', False)
-            self.is_flux = type(model).__name__ == "Flux" or getattr(model,'is_flux', False)
+             raise ValueError("Model version ('ver') must be provided in CLI mode.")
         else:
             self.is_sd1 = ver == 0
             self.is_sd2 = ver == 1
@@ -318,7 +301,10 @@ def import_json(name, preset = False, cli = False):
     output = []
 
     if filepath is None:
-        return [gr.update()] * len(all_configs)
+        # Return None or raise error in CLI mode if file not found
+        # Returning empty list for now, cli.py should handle the error
+        print(f"Warning: Config file '{name}' not found.")
+        return None
     with open(filepath, 'r', encoding='utf-8') as file:
         data = json.load(file)
     
@@ -894,9 +880,8 @@ def load_lr_scheduler(t, optimizer):
         **t.train_lr_scheduler_settings
     )
 
-def load_torch_file(ckpt, safe_load=False, device=None):
-    if not safe_load:
-        from modules import checkpoint_pickle
+def load_torch_file(ckpt, safe_load=True, device=None): # Default to safe_load=True for CLI
+    # Removed checkpoint_pickle import
     if device is None:
         device = torch.device("cpu")
     if ckpt.lower().endswith(".safetensors"):
@@ -909,7 +894,8 @@ def load_torch_file(ckpt, safe_load=False, device=None):
         if safe_load:
             pl_sd = torch.load(ckpt, map_location=device, weights_only=True)
         else:
-            pl_sd = torch.load(ckpt, map_location=device, pickle_module=checkpoint_pickle)
+            # Removed pickle_module=checkpoint_pickle
+            pl_sd = torch.load(ckpt, map_location=device)
         if "global_step" in pl_sd:
             print(f"Global Step: {pl_sd['global_step']}")
         if "state_dict" in pl_sd:

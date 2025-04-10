@@ -15,29 +15,10 @@ import safetensors.torch
 from pprint import pprint
 from accelerate.utils import set_seed
 
-try:
-    from modules import sd_models, sd_vae, shared, prompt_parser, lowvram
-    standalone = False
-except:
-    from modules import checkpoint_pickle
-    standalone = True
-    forge = False
-    
-if standalone:
-    from traintrain.trainer.lora import LoRANetwork, LycorisNetwork
-    from traintrain.trainer import trainer, dataset
-else:
-    from trainer.lora import LoRANetwork, LycorisNetwork
-    from trainer import trainer, dataset
-    
-    try:
-        from modules.sd_models import forge_model_reload, model_data
-        from modules_forge.main_entry import forge_unet_storage_dtype_options
-        from backend.memory_management import free_memory
-        forge = True
-    except:
-        forge = False
-        
+# Removed WebUI specific imports and standalone/forge logic
+# Assuming standalone operation for CLI
+from trainer.lora import LoRANetwork, LycorisNetwork # Adjusted import path
+from trainer import trainer, dataset # Adjusted import path
 MODEL_LIST = ["SD1", "SD2", "SDXL", "SD3", "FLUX","REFINER", "UNKNOWN"]
 MAX_DENOISING_STEPS = 1000
 ML = "LoRA"
@@ -121,63 +102,38 @@ def train_main(jsononly_or_paths, mode, modelname, vaename, *args):
 
     print(" Start Training!")
 
-    if standalone:
-        if not os.path.exists(modelname):
-            checkpoint_filename = os.path.join(t.models_dir, modelname) if hasattr(t, "models_dir") else modelname
-        state_dict = trainer.load_torch_file(checkpoint_filename)
+    # --- Standalone/CLI Model Loading Logic ---
+    # Determine absolute model path
+    if not os.path.isabs(modelname):
+        checkpoint_filename = os.path.join(t.models_dir, modelname) if hasattr(t, "models_dir") else modelname
+    else:
+        checkpoint_filename = modelname
+
+    if not os.path.exists(checkpoint_filename):
+        return f"Model file not found: {checkpoint_filename}"
+
+    # Detect model version from state_dict
+    try:
+        state_dict = trainer.load_torch_file(checkpoint_filename, safe_load=True) # Use safe_load
         model_version = detect_model_version(state_dict)
         del state_dict
         flush()
-        t.sd_typer(ver=model_version)
-        vae = None
-        vae_path = None if vaename in ["", "None"] else vaename
-        if vae_path is not None and not os.path.exists(vaename):
-            if hasattr(t, "vae_dir"):
-                vae_path = os.path.join(t.vae_dir, vae_path)
+        t.sd_typer(ver=model_version) # Pass detected version
+    except Exception as e:
+        return f"Error loading or detecting model version: {e}"
 
-    else:
-        currentinfo = shared.sd_model.sd_checkpoint_info if hasattr(shared.sd_model, "sd_checkpoint_info") else None
-
-        checkpoint_info = sd_models.get_closet_checkpoint_match(modelname)
-
-        lowvram.module_in_gpu = None #web-uiのバグ対策
-        
-        if forge:
-            unet_storage_dtype, _ = forge_unet_storage_dtype_options.get(shared.opts.forge_unet_storage_dtype, (None, False))
-            forge_model_params = dict(
-                checkpoint_info=checkpoint_info,
-                additional_modules=shared.opts.forge_additional_modules,
-                unet_storage_dtype=unet_storage_dtype
-            )
-            model_data.forge_loading_parameters = forge_model_params
-            forge_model_reload()
-            vae = shared.sd_model.forge_objects.vae.first_stage_model
+    # Determine absolute VAE path
+    vae = None
+    vae_path = None
+    if vaename and vaename != "None":
+        if not os.path.isabs(vaename):
+            vae_path = os.path.join(t.vae_dir, vaename) if hasattr(t, "vae_dir") else vaename
         else:
-            sd_models.load_model(checkpoint_info)
-            vae = None
-
-        t.sd_typer()
-
-        checkpoint_filename = shared.sd_model.sd_checkpoint_info.filename
-
-        t.orig_cond, t.orig_vector  = text2cond(t, t.prompts[0])
-        t.targ_cond, t.targ_vector  = text2cond(t, t.prompts[1])
-        t.un_cond, t.un_vector = text2cond(t, t.prompts[2])
-
-        print("Preparing the Model...")
-
-        if forge:
-            sd_models.model_data.sd_model = None
-            sd_models.model_data.loaded_sd_models = []
-            free_memory(0,CUDA, free_all = True)
-            gc.collect()
-        else:
-            sd_models.unload_model_weights()
-
-        lowvram.module_in_gpu = None #web-uiのバグ対策
-
-        vae_path = sd_vae.vae_dict.get(vaename, None)
-        
+            vae_path = vaename
+        if not os.path.exists(vae_path):
+            print(f"Warning: VAE file not found at {vae_path}, proceeding without external VAE.")
+            vae_path = None # Reset path if not found
+    # --- End Standalone/CLI Model Loading Logic ---
     if not vae:
         vae = trainer.load_VAE(t, vae_path) if vae_path is not None else None
 
@@ -226,12 +182,17 @@ def train_main(jsononly_or_paths, mode, modelname, vaename, *args):
     set_seed(t.train_seed)
     makesavelist(t)
     
-    if standalone:
-        with torch.no_grad(), t.a.autocast():
-            t.orig_cond, t.orig_vector  = t.text_model.encode_text(t.prompts[0])
-            t.targ_cond, t.targ_vector  = t.text_model.encode_text(t.prompts[1])
-            t.un_cond, t.un_vector = t.text_model.encode_text(t.prompts[2])
-    
+    # --- Standalone/CLI Text Encoding ---
+    # Encode prompts directly using the loaded text_model
+    print("Encoding prompts...")
+    with torch.no_grad(), t.a.autocast():
+        try:
+            t.orig_cond, t.orig_vector = t.text_model.encode_text([t.prompts[0]]) # Pass as list
+            t.targ_cond, t.targ_vector = t.text_model.encode_text([t.prompts[1]]) # Pass as list
+            t.un_cond, t.un_vector = t.text_model.encode_text([t.prompts[2]])     # Pass as list
+        except Exception as e:
+            return f"Error encoding prompts: {e}"
+    # --- End Standalone/CLI Text Encoding ---
     del vae, text_model, unet
 
     try:
@@ -257,22 +218,7 @@ def train_main(jsononly_or_paths, mode, modelname, vaename, *args):
     del t
     flush()
     
-    if standalone:
-        return result
-    
-    try:
-        if forge:
-            forge_model_params["checkpoint_info"] = currentinfo if currentinfo else checkpoint_info
-            model_data.forge_loading_parameters = forge_model_params
-            model_data.forge_hash = None
-            forge_model_reload()
-        else:
-            sd_models.load_model(currentinfo)
-    except:
-        lowvram.module_in_gpu = None #web-uiのバグ対策
-
-    if not forge: sd_models.model_data.loaded_sd_models = [] #web-uiのバグ対策
-
+    # Removed WebUI specific model reloading logic
     return result
 
 def train_lora(t):
@@ -755,27 +701,14 @@ def image2latent(t,image):
             return ((latent.latent_dist.sample() - t.vae_shift_factor) * t.vae_scale_factor)
 
 def text2cond(t, prompt):
-    if not standalone:
-        input = SdConditioning([prompt], width=t.image_size[0], height=t.image_size[1])
-        cond = prompt_parser.get_learned_conditioning(shared.sd_model,input,1)
-        if t.is_sdxl:
-            return [cond[0][0].cond["crossattn"].unsqueeze(0).to(CUDA, dtype=t.train_model_precision),
-                    (cond[0][0].cond["vector"][:1280].unsqueeze(0).to(CUDA, dtype=t.train_model_precision))]
-        else:
-            return (cond[0][0].cond.unsqueeze(0).to(CUDA, dtype=t.train_model_precision)), None
+    # This function is now redundant as encoding happens directly in train_main
+    # Kept for potential future use or refactoring, but should not be called in current CLI flow.
+    print("Warning: text2cond function called, but should be handled directly by TextModel.encode_text")
+    with torch.no_grad(), t.a.autocast():
+        cond, vector = t.text_model.encode_text([prompt]) # Pass as list
+    return cond, vector
 
-class SdConditioning(list):
-    def __init__(self, prompts, is_negative_prompt=False, width=None, height=None, copy_from=None):
-        super().__init__()
-        self.extend(prompts)
-
-        if copy_from is None:
-            copy_from = prompts
-
-        self.is_negative_prompt = is_negative_prompt or getattr(copy_from, 'is_negative_prompt', False)
-        self.width = width or getattr(copy_from, 'width', None)
-        self.height = height or getattr(copy_from, 'height', None)
-
+# Removed SdConditioning class (WebUI specific)
 def get_added_cond_kwargs(t, projection, batch_size, size = None):
     size = size if size is not None else t.image_size
     size_condition = list(size + [0, 0] + size)
