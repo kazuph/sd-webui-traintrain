@@ -15,9 +15,17 @@ First, build the image:
 docker compose build
 ```
 
-Then, run the training:
+Then, set environment variables:
+
 ```bash
-docker compose run --rm app python cli.py --mode ADDifT --config presets/ADDifT_Action_XL.json --model <path_to_your_model_in_container> --orig_image inputs/<your_original_image> --targ_image inputs/<your_target_image> --output_name outputs/<your_output_name> --iterations 50 --save-overwrite
+cp .env.example .env
+```
+
+Edit the `.env` file to set the required environment variables.
+
+
+```bash
+docker compose run --rm app python cli.py --mode ADDifT --config presets/ADDifT_Action_XL.json --orig_image inputs/<your_original_image> --targ_image inputs/<your_target_image> --output_name outputs/<your_output_name> --iterations 50 --save-overwrite
 ```
 
 **Note:** Replace placeholders like `<path_to_your_model>`, `<your_original_image>`, `<your_target_image>`, `<your_output_name>`, and `<path_to_your_model_in_container>` with your actual file paths and names.
