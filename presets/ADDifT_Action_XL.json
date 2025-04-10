@@ -1,5 +1,5 @@
 {
-    "network_type": "lierla",
+    "network_type": "lora",
     "network_rank": "4",
     "network_alpha": "1",
     "lora_data_directory": "",

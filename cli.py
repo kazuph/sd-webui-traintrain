@@ -6,17 +6,16 @@ from pathlib import Path
 
 # trainer モジュールをインポートできるようにパスを追加
 project_root = Path(__file__).resolve().parent
-trainer_path = project_root / 'trainer'
-if str(trainer_path) not in sys.path:
-    sys.path.insert(0, str(trainer_path))
-# プロジェクトルートもパスに追加 (traintrain.trainer をインポートするため)
+# プロジェクトルートをパスに追加 (trainer パッケージをインポートするため)
 if str(project_root) not in sys.path:
      sys.path.insert(0, str(project_root))
+# trainer_path の追加は不要。プロジェクトルートから trainer パッケージを見つけるため。
 
 # trainer モジュールのインポート
 try:
     # trainer モジュール内の __init__.py で必要なものをインポートするようにする想定
-    from trainer import train, trainer, dataset, lora
+    from trainer import trainer, dataset, lora # train を削除
+    import trainer.train as train_module # train モジュールを別名でインポート
     # all_configs を trainer モジュールから取得
     all_configs = trainer.all_configs
 except ImportError as e:
@@ -145,9 +144,9 @@ def merge_configs(cli_args_dict, config_path):
             # 他の引数も必要に応じてマッピング
             elif key in merged_config or key in [c[0].split("(")[0] for c in all_configs]: # all_configsのキー名もチェック
                  merged_config[key] = value
-            # else:
-            #      print(f"Debug: CLI arg '{key}' not directly mapped or found in config, storing as is.")
-            #      merged_config[key] = value # マッピング外の引数も念のため保持
+            else:
+                 # print(f"Debug: CLI arg '{key}' not directly mapped or found in config, storing as is.")
+                 merged_config[key] = value # マッピング外の引数も念のため保持
 
     # --- デフォルト値の設定 (JSONにもCLIにもない場合) ---
     # Trainerクラスの初期化でデフォルト値が設定されるはずだが、念のため主要なものを設定
@@ -174,45 +173,7 @@ def merge_configs(cli_args_dict, config_path):
 
     return merged_config
 
-def create_trainer_args_list(config):
-    """Converts merged config dict to the list format expected by train_main."""
-    args_list = []
-    # all_configs の順序に従って値を取得
-    # 2nd pass の設定も考慮する必要があるが、CLIではまず1st passのみを想定
-    # Trainerはフラットなリストを期待しているようなので、all_configsのキー順に値を追加
-    # 2nd pass用の値もNoneなどで埋める必要があるかもしれない
-
-    # 1st pass settings
-    for conf in all_configs:
-        key = conf[0].split("(")[0]
-        args_list.append(config.get(key, conf[3])) # 見つからなければデフォルト値(conf[3])を使う
-
-    # 2nd pass settings (Differenceモード以外はダミー/Noneで埋める)
-    # TODO: Differenceモードの場合、2nd passの設定をconfigから取得するロジックが必要
-    is_difference_mode = config.get('mode') == "Difference"
-    if is_difference_mode and config.get('use_2nd_pass_settings'):
-         print("Warning: CLI mode currently does not fully support separate 2nd pass settings via CLI args. Using 1st pass settings or JSON values if available.")
-         # JSONに '2nd pass' キーがあればそれを使う、なければ1st passと同じものを仮で入れる
-         pass_2_config = config.get('2nd pass', config) # JSONに '2nd pass' があればそれを使う
-         for conf in all_configs:
-              key = conf[0].split("(")[0]
-              # 2nd pass 用の設定を優先的に取得、なければ1st passの値を使う
-              args_list.append(pass_2_config.get(key, config.get(key, conf[3])))
-    else:
-         # 2nd pass設定をダミーで埋める (1st passと同じ値を使うか、Noneにする)
-         for conf in all_configs:
-              key = conf[0].split("(")[0]
-              args_list.append(config.get(key, conf[3])) # とりあえず1st passと同じ値
-
-    # Prompts and Images (末尾に追加)
-    args_list.append(config.get('orig_prompt', ''))
-    args_list.append(config.get('targ_prompt', ''))
-    args_list.append('') # Negative prompt (現状CLI引数なし)
-    args_list.append(config.get('orig_image', None))
-    args_list.append(config.get('targ_image', None))
-
-    return args_list
-
+# create_trainer_args_list 関数は不要になったため削除 (関数定義全体を削除)
 
 def main():
     args = parse_args()
@@ -245,17 +206,12 @@ def main():
     print("--------------------------")
 
     try:
-        # train.train_main が期待する引数リストを作成
-        trainer_args = create_trainer_args_list(merged_config)
-
         # train_main を呼び出し
         # jsononly_or_paths は CLI では False 固定とする
-        result = train.train_main(
-            False,
-            merged_config['mode'],
-            merged_config['model'],
-            merged_config.get('vae'), # VAEはオプション
-            *trainer_args # 残りの引数をリストで渡す
+        # 引数リストの代わりに merged_config ディクショナリを渡す
+        result = train_module.train_main(
+            False, # jsononly_or_paths
+            merged_config # 設定ディクショナリを渡す
         )
         print("\n--- Training Result ---")
         print(result)

@@ -60,116 +60,156 @@ OPTIMIZERS = ["AdamW", "AdamW8bit", "AdaFactor", "Lion", "Prodigy", SEP,
                "PagedAdamW", "PagedAdamW32bit", "SGDNesterov", "Adam",]
 
 class Trainer():
-    def __init__(self, jsononly, model, vae, mode, values):
+    # values を config_dict に変更
+    def __init__(self, jsononly, model, vae, mode, config_dict):
         if type(jsononly) is list:
             paths = jsononly
             jsononly = False
         else:
-            # Paths will be determined/passed via CLI arguments later
-            paths = None
-        self.values = values
+            paths = None # CLI モードではパスは config_dict 内にあるはず
+
         self.mode = mode
         self.use_8bit = False
         self.count_dict = {}
         self.metadata = {}
 
-        self.save_dir = lora_dir
+        # config_dict の内容を self の属性として設定
+        for key, value in config_dict.items():
+            # 特殊なキー名や型変換が必要な場合はここで処理
+            # 例: network_blocks(BASE = TextEncoder) -> network_blocks
+            attr_key = key.split("(")[0]
+
+            # 型変換 (必要に応じて追加) - all_configs がないので推測または固定
+            # image_size は文字列のまま保持するため、ここでは変換しない
+            if isinstance(value, str) and attr_key != 'image_size':
+                # 数値に変換できそうなものは試みる
+                if value.isdigit():
+                    try: value = int(value)
+                    except ValueError: pass # 変換失敗時は文字列のまま
+                elif '.' in value and all(c.isdigit() or c == '.' for c in value) and value.count('.') == 1:
+                     try: value = float(value)
+                     except ValueError: pass # 変換失敗時は文字列のまま
+                # 真偽値
+                elif value.lower() == 'true': value = True
+                elif value.lower() == 'false': value = False
+
+            # VAE precision など、特定のキーに対する処理
+            if "precision" in attr_key:
+                 if attr_key == "train_model_precision" and value == "fp8":
+                     self.use_8bit = True
+                     print("Use 8bit Model Precision")
+                 value = parse_precision(value) # parse_precision を使う
+
+            # Optimizer settings の処理 (setpass から移動)
+            if attr_key == "train_optimizer_settings" or attr_key == "train_lr_scheduler_settings":
+                 dvalue = {}
+                 if value is not None and isinstance(value, str) and len(value.strip()) > 0:
+                     value = value.replace(" ", "").replace(";","\n")
+                     args_list = value.split("\n")
+                     for arg in args_list:
+                         if "=" in arg:
+                             k, v = arg.split("=", 1)
+                             try: v = ast.literal_eval(v)
+                             except: pass # 評価できない場合は文字列のまま
+                             dvalue[k] = v
+                 value = dvalue
+            elif attr_key == "train_optimizer" and isinstance(value, str):
+                 value = value.lower() # Optimizer 名を小文字に
+
+            setattr(self, attr_key, value)
+
+        # --- 以前 __init__ や setpass で行っていた初期化や設定 ---
+        self.save_dir = lora_dir # デフォルトの出力先
         if not os.path.exists(lora_dir):
             os.makedirs(lora_dir)
-        self.setpass(0)
 
-        self.image_size = [int(x) for x in self.image_size.split(",")]
+        # image_size の処理 (デフォルト値や分割)
+        if not hasattr(self, 'image_size') or not self.image_size:
+             self.image_size = "512,512" # デフォルト値
+        if isinstance(self.image_size, str):
+             self.image_size = [int(x) for x in self.image_size.split(",")]
         if len(self.image_size) == 1:
-            self.image_size = self.image_size * 2
+             self.image_size = self.image_size * 2
         self.image_size.sort()
-        
-        self.gradient_accumulation_steps = 1
-        self.train_repeat = 1
+
+        # その他のデフォルト値や初期化
+        self.gradient_accumulation_steps = getattr(self, 'gradient_accumulation_steps', 1)
+        self.train_repeat = getattr(self, 'train_repeat', 1)
         self.total_images = 0
-        
-        if self.diff_1st_pass_only:
-            self.save_1st_pass = True
+        self.save_1st_pass = getattr(self, 'save_1st_pass', False)
+        if getattr(self, 'diff_1st_pass_only', False): # diff_1st_pass_only を参照
+             self.save_1st_pass = True
 
-        self.checkfile()
+        # プロンプトと画像の取得 (config_dict から)
+        self.prompts = [
+            config_dict.get('orig_prompt', ''),
+            config_dict.get('targ_prompt', ''),
+            config_dict.get('neg_prompt', '') # neg_prompt も取得試行
+        ]
+        self.images = [
+            config_dict.get('orig_image', None),
+            config_dict.get('targ_image', None)
+        ]
 
-        clen = len(all_configs) * (len(values) // len(all_configs))
+        # add_dcit の作成
+        self.add_dcit = {
+            "mode": self.mode,
+            "model": model, # __init__ に渡された model を使用
+            "vae": vae,     # __init__ に渡された vae を使用
+            "original prompt": self.prompts[0],
+            "target prompt": self.prompts[1]
+        }
 
-        self.prompts = values[clen:clen + 3]
-        self.images =  values[clen + 3:]
-        
-        self.add_dcit = {"mode": mode, "model": model, "vae": vae, "original prompt": self.prompts[0],"target prompt": self.prompts[1]}
+        # 以前 setpass 後に呼び出していたメソッド
+        self.mode_fixer()
+        self.checkfile() # save_lora_name が設定された後に呼び出す必要あり
 
+        # JSON エクスポートとパス設定
         self.export_json(jsononly)
         if paths is not None:
-            self.setpaths(paths)
+            self.setpaths(paths) # paths があれば設定
 
-    def setpass(self, pas, set = True):
-        values_0 = self.values[:len(all_configs)]
-        values_1 = self.values[len(all_configs):len(all_configs) * 2]
-        if pas == 1:
-            if values_1[-1]:
-                if set: print("Use 2nd pass settings")
-            else:
-                return
-        jdict = {}
-        for i, (sets, value) in enumerate(zip(all_configs, values_1 if pas > 0 else values_0)):
-            jdict[sets[0]] = value
-    
-            if pas > 0:
-                if not sets[5][3]:
-                    value = values_0[i]
-
-            if not isinstance(value, sets[4]):
-                try:
-                    value = sets[4](value)
-                except:
-                    if not sets[0] == "train_textencoder_learning_rate":
-                        print(f"ERROR, input value for {sets[0]} : {sets[4]} is invalid, use default value {sets[3]}")
-                    value = sets[3]
-            if "precision" in sets[0]:
-                if sets[0] == "train_model_precision" and value == "fp8":
-                    self.use_8bit == True
-                    print("Use 8bit Model Precision")
-                value = parse_precision(value)
-
-            if "diff_load_1st_pass" == sets[0]:
-                found = False
-                value = value if ".safetensors" in value else value + ".safetensors"
-                for root, dirs, files in os.walk(self.save_dir):
-                    if value in files:
-                        value = os.path.join(root, value)
-                        found = True
-                if not found:
-                    value = ""
-            
-            if "train_optimizer" == sets[0]:
-                value = value.lower()
-            
-            if "train_optimizer_settings" == sets[0] or "train_lr_scheduler_settings" == sets[0]:
-                dvalue = {}
-                if value is not None and len(value.strip()) > 0:
-                    # 改行や空白を取り除きつつ処理
-                    value = value.replace(" ", "").replace(";","\n")
-                    args = value.split("\n")
-                    for arg in args:
-                        if "=" in arg:  # "=" が存在しない場合は無視
-                            key, val = arg.split("=", 1)
-                            val = ast.literal_eval(val)  # リテラル評価で型を適切に変換
-                            dvalue[key] = val
-                value = dvalue
-            if set: 
-                setattr(self, sets[0].split("(")[0], value)
-        
-        self.mode_fixer()
-        return jdict
+    # setpass メソッドは __init__ に統合されたため削除
 
     savedata = ["model", "vae", ]
     
     def export_json(self, jsononly):
         current_time = datetime.now()
-        outdict = self.setpass(0, set = False)
-        if self.mode == "Difference":
-            outdict[PASS2] = self.setpass(1, set = False)
+        # export_json で config_dict の内容を使うように変更 (setpass 呼び出しを削除)
+        # outdict を生成する際に dtype を文字列に変換
+        outdict = {}
+        exclude_keys = {'a', 'unet', 'text_model', 'vae', 'noise_scheduler', 'dataloader', 'orig_cond', 'targ_cond', 'un_cond', 'orig_vector', 'targ_vector', 'un_vector', 'orig_latent', 'targ_latent'} # JSONに含めない属性
+        for k, v in self.__dict__.items():
+             if not k.startswith('_') and not callable(v) and k not in exclude_keys:
+                 if isinstance(v, torch.dtype):
+                     # dtype を文字列に変換
+                     if v == torch.float32:
+                         outdict[k] = "fp32"
+                     elif v == torch.float16:
+                         outdict[k] = "fp16"
+                     elif v == torch.bfloat16:
+                         outdict[k] = "bf16"
+                     else:
+                         outdict[k] = str(v) # 不明な dtype は文字列化
+                 elif isinstance(v, torch.device):
+                      outdict[k] = str(v) # device オブジェクトも文字列化
+                 # 他にもシリアライズできない型があればここに追加
+                 else:
+                      # リスト内の dtype もチェック (例: network_blocks) - より堅牢なチェックが必要な場合あり
+                      if isinstance(v, list):
+                           try:
+                               # リストの内容がJSONシリアライズ可能か簡易チェック
+                               json.dumps(v)
+                               outdict[k] = v
+                           except TypeError:
+                                # シリアライズできないリストはスキップするか、代替表現にする
+                                print(f"Warning: Skipping non-serializable list attribute '{k}' in export_json.")
+                                pass # または outdict[k] = str(v) など
+                      else:
+                           outdict[k] = v
+        # TODO: Difference モードの 2nd pass 設定のエクスポートロジックを再実装する必要がある
+        # if self.mode == "Difference" and getattr(self, 'use_2nd_pass_settings', False):
+        #     pass # 2nd pass の設定を outdict に追加する処理
         outdict.update(self.add_dcit)
         today = current_time.strftime("%Y%m%d")
         time = current_time.strftime("%Y%m%d_%H%M%S")

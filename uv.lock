@@ -189,7 +189,7 @@ wheels = [
 
 [[package]]
 name = "lycoris-lora"
-version = "3.1.1.post1"
+version = "3.2.0.dev2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "einops" },
@@ -197,7 +197,7 @@ dependencies = [
     { name = "torch" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a0/3d/43eee26fa2829f1a8b1115197dd20f7b2842d8913d381fdfbb8f440785c4/lycoris_lora-3.1.1.post1.tar.gz", hash = "sha256:35150f9ccf0da9df6a1b83390440a67a25e357c2e4c5ee810093ce1feaef11fb", size = 51789 }
+sdist = { url = "https://files.pythonhosted.org/packages/59/ae/380a67aea2b97955bb514751c9527fdd7c393be65b90413eb24429d48bfd/lycoris_lora-3.2.0.dev2.tar.gz", hash = "sha256:63bf8c73d3e1aa402d8df9b915e8771a410f791be99e44f0f43d33ef4169d795", size = 53609 }
 
 [[package]]
 name = "markupsafe"
@@ -594,7 +594,7 @@ requires-dist = [
     { name = "dadaptation", specifier = ">=3.2" },
     { name = "diffusers", specifier = ">=0.33.0" },
     { name = "lion-pytorch", specifier = ">=0.2.3" },
-    { name = "lycoris-lora", specifier = ">=3.1.1.post1" },
+    { name = "lycoris-lora", specifier = ">=3.2.0.dev2" },
     { name = "numpy", specifier = ">=2.2.4" },
     { name = "pillow", specifier = ">=11.1.0" },
     { name = "prodigyopt", specifier = ">=1.1.2" },

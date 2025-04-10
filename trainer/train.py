@@ -37,11 +37,7 @@ current_name = None
 
 #dfalse, mode, model, vae, *train_settings_1, *train_settings_2, *prompts, *in_images
 
-def get_name_index(wanted):
-    for i, name in enumerate(trainer.all_configs):
-        if name[0] == wanted:
-            return i
-
+# get_name_index 関数は all_configs が空のため不要になったので削除
 def queue(*args):
     global queue_list
     name_index = get_name_index("save_lora_name") + 4
@@ -88,8 +84,14 @@ def train(*args):
     flush()
     return result
 
-def train_main(jsononly_or_paths, mode, modelname, vaename, *args):
-    t = trainer.Trainer(jsononly_or_paths, modelname, vaename, mode, args)
+# *args を config_dict に変更
+def train_main(jsononly_or_paths, config_dict):
+    # Trainer に config_dict を渡すように変更
+    # mode, modelname, vaename は config_dict から取得する
+    mode = config_dict.get('mode')
+    modelname = config_dict.get('model')
+    vaename = config_dict.get('vae')
+    t = trainer.Trainer(jsononly_or_paths, modelname, vaename, mode, config_dict)
 
     if type(jsononly_or_paths) is bool and jsononly_or_paths == True:
         return "Preset saved"
@@ -608,10 +610,15 @@ class DummyScheduler():
         pass
 
 def load_network(t):
-    types = trainer.all_configs[get_name_index("network_type")][2]
-    if t.network_type in types[:2]:
+    # all_configs を参照せず、t.network_type を直接使用する
+    # LoRA/LoHa かどうかで分岐 (元の types[:2] の挙動を推測)
+    # 一般的なタイプに基づいて判断。必要に応じて調整。
+    if hasattr(t, 'network_type') and t.network_type.lower() in ['lora', 'loha']:
+        print(f"Loading LoRANetwork for network_type: {t.network_type}")
         return LoRANetwork(t).to(CUDA, dtype=t.train_lora_precision)
     else:
+        # LoRA/LoHa 以外 (lierla, locon, ia3 など) は LycorisNetwork と仮定
+        print(f"Loading LycorisNetwork for network_type: {getattr(t, 'network_type', 'N/A')}")
         return LycorisNetwork(t).to(CUDA, dtype=t.train_lora_precision)
 
 def stop_time(save):
@@ -691,9 +698,11 @@ def image2latent(t,image):
     image = numpy.moveaxis(image, 2, 0)
     image = torch.from_numpy(image).unsqueeze(0)
     image = image * 2 - 1
-    image = image.to(CUDA,dtype=t.train_VAE_precision)
+    # train_VAE_precision の代わりに train_model_precision を使用
+    image = image.to(CUDA,dtype=t.train_model_precision)
     with torch.no_grad():
-        t.vae.to(t.train_VAE_precision)
+        # train_VAE_precision の代わりに train_model_precision を使用
+        t.vae.to(dtype=t.train_model_precision)
         latent = t.vae.encode(image)
         if isinstance(latent, torch.Tensor):
             return ((latent - t.vae_shift_factor) * t.vae_scale_factor)

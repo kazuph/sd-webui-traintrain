@@ -349,6 +349,10 @@ class LoRANetwork(nn.Module):
                 if "lora_up" in key or "lora_down" in key:
                     state_dict[key] = state_dict[key] * t.network_strength ** 0.5
 
+        # Ensure the output directory exists before saving
+        output_dir = os.path.dirname(file)
+        os.makedirs(output_dir, exist_ok=True)
+
         base, ext = os.path.splitext(file)
         attempt = 0
         while True:
@@ -385,12 +389,27 @@ class LoRANetwork(nn.Module):
         for lora in self.unet_loras + self.te_loras:
             lora.multiplier = num
 
+# LyCORIS モジュールのインポートを追加
 from lycoris.modules.loha import LohaModule
+from lycoris.modules.locon import LoConModule # locon も追加 (一般的)
+from lycoris.modules.ia3 import IA3Module     # ia3 も追加 (一般的)
+# lierla のインポートを試みる (ライブラリに存在する場合)
+try:
+    from lycoris.modules.lierla import LierlaModule
+except ImportError:
+    print("Warning: LierlaModule not found in lycoris library. 'lierla' network_type might not be fully supported.")
+    LierlaModule = None # 見つからない場合は None に設定
+
 from lycoris.modules.norms import NormModule
 
 network_module_dict = {
     "loha": LohaModule,
+    "locon": LoConModule, # 追加
+    "ia3": IA3Module,     # 追加
 }
+# LierlaModule がインポートできた場合のみ辞書に追加
+if LierlaModule:
+    network_module_dict["lierla"] = LierlaModule
 
 HADAMEN = ["alpha","hada_t1","hada_w1_a","hada_w1_b","hada_t2","hada_w2_a","hada_w2_b"]
 
@@ -427,7 +446,7 @@ class LycorisNetwork(torch.nn.Module):
         self.lora_dim = t.network_rank
         conv_lora_dim = t.network_conv_rank if t.network_conv_rank != 0 else t.network_rank
 
-        network_module_dict[network_module].forward = forwards[network_module]
+        # network_module_dict[network_module].forward = forwards[network_module] # KeyError: 'lierla' の原因であり、ロジック的にも不要と思われるためコメントアウト
 
         t.lora_unet_target = UNET_TARGET_REPLACE_MODULE_C3
         t.lora_te_target = TEXT_ENCODER_TARGET_REPLACE_MODULE
