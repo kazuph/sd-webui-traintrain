@@ -1,0 +1,48 @@
+# .dockerignore
+
+# Git files
+.git/
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and outputs (adjust as needed)
+logs/
+outputs/
+jsons/ # 学習結果など、コンテナに含めたくない場合
+
+# Docker files
+Dockerfile
+compose.yml
+
+# Lock files (uv.lock は COPY するので除外しない)
+# uv.lock
+
+# Other specific files/dirs to ignore
+*.ipynb
+*.md # READMEなどを除外する場合
+cache/ # ホストのキャッシュを使いたい場合
+inputs/ # 学習データなど

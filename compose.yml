@@ -1,0 +1,33 @@
+services:
+  app:
+    tty: true # インタラクティブな操作のために残す
+    build:
+      context: .
+      dockerfile: "Dockerfile"
+    # ポート公開は cli.py を直接実行する場合は通常不要
+    # ports:
+    #   - "8000:8000"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0 # 使用するGPU ID (環境に合わせて変更)
+      - HF_HOME=/app/cache # Hugging Face キャッシュディレクトリ
+      - CC=/usr/bin/gcc # Cコンパイラのパスを実行時に設定
+    # ホストとの共有ボリューム (必要に応じてコメント解除・調整)
+    # volumes:
+    #   - ./inputs:/app/inputs:rw # 学習データ
+    #   - ./outputs:/app/outputs:rw # 生成物
+    #   - ./cache:/app/cache:rw # Hugging Face キャッシュ (ホストと共有する場合)
+    deploy:
+      resources:
+        reservations:
+          devices:
+              - driver: nvidia
+                device_ids: ['0'] # 使用するGPU ID (環境に合わせて変更)
+                capabilities: [gpu]
+    # command は Dockerfile の CMD を使用するため、通常は不要
+    # command: ["python", "cli.py", "--some-option"] # デバッグなどで上書きする場合
+
+# 不要になった名前付きボリューム定義を削除
+# volumes:
+#   python-packages:
+#     name: python-packages
+#     external: true
