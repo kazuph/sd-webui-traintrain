@@ -1,0 +1,23 @@
+[project]
+name = "sd-webui-traintrain"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "accelerate>=1.6.0",
+    "bitsandbytes>=0.45.5",
+    "dadaptation>=3.2",
+    "diffusers>=0.33.0",
+    "lion-pytorch>=0.2.3",
+    "lycoris-lora>=3.1.1.post1",
+    "numpy>=2.2.4",
+    "pillow>=11.1.0",
+    "prodigyopt>=1.1.2",
+    "pytorch-optimizer>=3.5.0",
+    "safetensors>=0.5.3",
+    "schedulefree>=1.4.1",
+    "torch>=2.6.0",
+    "tqdm>=4.67.1",
+    "transformers>=4.51.1",
+]
