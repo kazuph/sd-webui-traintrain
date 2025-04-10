@@ -393,12 +393,6 @@ class LoRANetwork(nn.Module):
 from lycoris.modules.loha import LohaModule
 from lycoris.modules.locon import LoConModule # locon も追加 (一般的)
 from lycoris.modules.ia3 import IA3Module     # ia3 も追加 (一般的)
-# lierla のインポートを試みる (ライブラリに存在する場合)
-try:
-    from lycoris.modules.lierla import LierlaModule
-except ImportError:
-    print("Warning: LierlaModule not found in lycoris library. 'lierla' network_type might not be fully supported.")
-    LierlaModule = None # 見つからない場合は None に設定
 
 from lycoris.modules.norms import NormModule
 
@@ -407,9 +401,6 @@ network_module_dict = {
     "locon": LoConModule, # 追加
     "ia3": IA3Module,     # 追加
 }
-# LierlaModule がインポートできた場合のみ辞書に追加
-if LierlaModule:
-    network_module_dict["lierla"] = LierlaModule
 
 HADAMEN = ["alpha","hada_t1","hada_w1_a","hada_w1_b","hada_t2","hada_w2_a","hada_w2_b"]
 

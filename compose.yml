@@ -11,9 +11,11 @@ services:
       - NVIDIA_VISIBLE_DEVICES=0 # 使用するGPU ID (環境に合わせて変更)
       - HF_HOME=/app/cache # Hugging Face キャッシュディレクトリ
       - CC=/usr/bin/gcc # Cコンパイラのパスを実行時に設定
+      - STABLE_DIFFUSION_MODEL_DIR=/models
+      - STABLE_DIFFUSION_MODEL_FILENAME=${STABLE_DIFFUSION_MODEL_FILENAME}
     volumes:
       # モデルファイルをコンテナ内の /models にマウント (読み取り専用)
-      - ${STABLE_DIFFUSION_MODEL_PATH}:/models/sd_xl_base_1.0.safetensors:ro
+      - ${STABLE_DIFFUSION_MODEL_DIR}/${STABLE_DIFFUSION_MODEL_FILENAME}:/models/${STABLE_DIFFUSION_MODEL_FILENAME}:ro
       # inputs ディレクトリをコンテナ内の /app/inputs にマウント (読み取り専用)
       - ./inputs:/app/inputs:ro
       # outputs ディレクトリをコンテナ内の /app/outputs にマウント (読み書き可能)

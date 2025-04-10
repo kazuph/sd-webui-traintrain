@@ -491,8 +491,11 @@ class Trainer():
         
         self.is_dit = self.is_sd3 or self.is_flux
         self.is_te2 = self.is_sdxl or self.is_sd3
-
-        print("Base Model : ", self.model_version)
+        model_path = self.add_dcit.get('model', 'Unknown')
+        model_filename = os.path.basename(model_path) if model_path else 'Unknown'
+        print(f"Base Model : {self.model_version}")
+        print(f"Model Path : {model_path}")
+        print(f"Model Filename : {model_filename}")
     
     def setpaths(self, paths):
         if paths[0] is not None:#root

@@ -34,7 +34,15 @@ def parse_args():
 
     # --- 必須引数 ---
     parser.add_argument("--mode", type=str, required=True, choices=["LoRA", "iLECO", "Difference", "ADDifT", "Multi-ADDifT"], help="Training mode.")
-    parser.add_argument("--model", type=str, required=True, help="Path to the base model file (.safetensors or .ckpt).")
+    # モデルパスのデフォルト値を環境変数から取得
+    default_model = None
+    if os.environ.get('STABLE_DIFFUSION_MODEL_FILENAME') and os.environ.get('STABLE_DIFFUSION_MODEL_DIR'):
+        default_model = os.path.join(
+            os.environ.get('STABLE_DIFFUSION_MODEL_DIR'),
+            os.environ.get('STABLE_DIFFUSION_MODEL_FILENAME')
+        )
+    parser.add_argument("--model", type=str, required=False, default=default_model,
+                       help="Path to the base model file (.safetensors or .ckpt). If not specified, uses STABLE_DIFFUSION_MODEL_DIR/STABLE_DIFFUSION_MODEL_FILENAME from environment.")
     parser.add_argument("--output_name", dest="save_lora_name", type=str, required=True, help="Filename for the output LoRA (without extension).") # Trainer uses save_lora_name
 
     # --- モード別必須引数 ---
@@ -101,6 +109,11 @@ def parse_args():
     args = parser.parse_args()
 
     # --- 引数の検証 ---
+    # モデルが指定されていない場合に環境変数を確認
+    if not args.model:
+        if not (os.environ.get('STABLE_DIFFUSION_MODEL_FILENAME') and os.environ.get('STABLE_DIFFUSION_MODEL_DIR')):
+            parser.error("--model is required or set both STABLE_DIFFUSION_MODEL_DIR and STABLE_DIFFUSION_MODEL_FILENAME environment variables.")
+    
     if args.mode in ["LoRA", "Multi-ADDifT"] and not args.lora_data_directory and not args.config:
          parser.error("--data_dir or --config providing data_dir is required for LoRA and Multi-ADDifT modes.")
     if args.mode == "iLECO" and (not args.orig_prompt or not args.targ_prompt) and not args.config:
@@ -150,6 +163,14 @@ def merge_configs(cli_args_dict, config_path):
                  # print(f"Debug: CLI arg '{key}' not directly mapped or found in config, storing as is.")
                  merged_config[key] = value # マッピング外の引数も念のため保持
 
+    # --- モデルパスが未設定の場合、環境変数を確認 ---
+    if not merged_config.get('model') and os.environ.get('STABLE_DIFFUSION_MODEL_FILENAME') and os.environ.get('STABLE_DIFFUSION_MODEL_DIR'):
+        merged_config['model'] = os.path.join(
+            os.environ.get('STABLE_DIFFUSION_MODEL_DIR'),
+            os.environ.get('STABLE_DIFFUSION_MODEL_FILENAME')
+        )
+        print(f"Using model from environment variables: {merged_config['model']}")
+
     # --- デフォルト値の設定 (JSONにもCLIにもない場合) ---
     # このブロックは Trainer.__init__ で all_configs を使ってデフォルト値を設定するため不要。削除する。
     # for conf in all_configs:
@@ -159,15 +180,21 @@ def merge_configs(cli_args_dict, config_path):
     # --- モード別必須パラメータの最終チェック ---
     # (Trainerクラス内でもチェックされるはずだが、早期にエラーを出す)
     mode = merged_config.get('mode')
+    
+    # モデルが指定されていない場合のエラーチェック
+    if not merged_config.get('model'):
+        print("Error: Model must be specified either via --model argument, JSON config, or environment variables.")
+        sys.exit(1)
+        
     if mode in ["LoRA", "Multi-ADDifT"] and not merged_config.get('lora_data_directory'):
         print(f"Error: --data_dir is required for mode '{mode}' (must be provided via CLI or config).")
         sys.exit(1)
     if mode == "iLECO" and (not merged_config.get('orig_prompt') or not merged_config.get('targ_prompt')):
-         print(f"Error: --orig_prompt and --targ_prompt are required for mode '{mode}'.")
-         sys.exit(1)
+        print(f"Error: --orig_prompt and --targ_prompt are required for mode '{mode}'.")
+        sys.exit(1)
     if mode in ["Difference", "ADDifT"] and (not merged_config.get('orig_image') or not merged_config.get('targ_image')):
-         print(f"Error: --orig_image and --targ_image are required for mode '{mode}'.")
-         sys.exit(1)
+        print(f"Error: --orig_image and --targ_image are required for mode '{mode}'.")
+        sys.exit(1)
 
 
     return merged_config
@@ -185,7 +212,10 @@ def main():
     print("Effective Parameters:")
     # 主要なパラメータを表示（表示しすぎないように調整）
     print(f"  Mode: {merged_config.get('mode')}")
-    print(f"  Model: {merged_config.get('model')}")
+    # モデルパスとファイル名を表示
+    model_path = merged_config.get('model', '')
+    model_filename = os.path.basename(model_path) if model_path else 'None'
+    print(f"  Model: {model_path}")
     print(f"  VAE: {merged_config.get('vae', 'Default')}")
     print(f"  Output Name: {merged_config.get('save_lora_name')}")
     if merged_config.get('lora_data_directory'):
