@@ -539,7 +539,8 @@ def train_diff2(t):
             with torch.no_grad(), t.a.autocast(): 
                 orig_noise_pred = t.unet(orig_noisy_latents, timesteps, orig_conds1, added_cond_kwargs = orig_added_cond_kwargs).sample
             
-            network.set_multiplier(0.25 if turn else - 0.25 * abs(t.diff_alt_ratio))
+            # 乗数を小さくして数値安定性を試す (0.25 -> 0.1)
+            network.set_multiplier(0.1 if turn else - 0.1 * abs(t.diff_alt_ratio))
 
             with t.a.autocast():
                 targ_noise_pred = t.unet(targ_noisy_latents, timesteps, targ_conds1, added_cond_kwargs = targ_added_cond_kwargs).sample

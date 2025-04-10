@@ -95,6 +95,10 @@ def parse_args():
         parser.add_argument(f"--{cli_arg_name.replace('_', '-')}", **arg_params)
         added_args.add(cli_arg_name)
 
+    # save_overwrite を明示的に追加
+    parser.add_argument("--save-overwrite", dest="save_overwrite", action="store_true", default=None, help="Overwrite existing LoRA file if it exists.")
+    added_args.add('save_overwrite') # added_args にも追加して重複定義を防ぐ
+
 
     args = parser.parse_args()
 
