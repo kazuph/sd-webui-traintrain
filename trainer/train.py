@@ -611,16 +611,27 @@ class DummyScheduler():
         pass
 
 def load_network(t):
-    # all_configs を参照せず、t.network_type を直接使用する
-    # LoRA/LoHa かどうかで分岐 (元の types[:2] の挙動を推測)
-    # 一般的なタイプに基づいて判断。必要に応じて調整。
-    if hasattr(t, 'network_type') and t.network_type.lower() in ['lora', 'loha']:
-        print(f"Loading LoRANetwork for network_type: {t.network_type}")
+    # network_type が存在するか確認し、存在しない場合はデフォルト値（例: 'lora'）を設定するか、エラーを出す
+    # trainer モジュールから lora をインポートしておく必要がある
+    from trainer import lora
+    network_type = getattr(t, 'network_type', 'lora').lower() # デフォルトを 'lora' と仮定
+
+    # lierla と c3lier は LoRANetwork を使用
+    if network_type in ['lierla', 'c3lier', 'lora']: # lora も LoRANetwork を使うように明示
+        print(f"Loading LoRANetwork for network_type: {network_type}")
+        # LoRANetwork の初期化時に t を渡す
         return LoRANetwork(t).to(CUDA, dtype=t.train_lora_precision)
-    else:
-        # LoRA/LoHa 以外 (lierla, locon, ia3 など) は LycorisNetwork と仮定
-        print(f"Loading LycorisNetwork for network_type: {getattr(t, 'network_type', 'N/A')}")
+    # LyCORIS系のネットワークタイプ (loha, locon, ia3 など) は LycorisNetwork を使用
+    elif network_type in lora.network_module_dict: # lora.py の辞書を参照
+        print(f"Loading LycorisNetwork for network_type: {network_type}")
+        # LycorisNetwork の初期化時に t を渡す
         return LycorisNetwork(t).to(CUDA, dtype=t.train_lora_precision)
+    else:
+        # 未知またはデフォルトのタイプは LoRANetwork を使うか、エラーとする
+        print(f"Warning: Unknown or unsupported network_type '{network_type}'. Falling back to LoRANetwork.")
+        # デフォルトとして LoRANetwork を返すか、エラー処理を行う
+        return LoRANetwork(t).to(CUDA, dtype=t.train_lora_precision)
+        # または raise ValueError(f"Unsupported network_type: {network_type}")
 
 def stop_time(save):
     global stoptimer

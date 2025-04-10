@@ -858,42 +858,49 @@ def load_lr_scheduler(t, optimizer):
     
     # アニーリング系のスケジューラを追加
     if t.train_lr_scheduler == "cosine_annealing":
+        print("Using CosineAnnealingLR")
         return CosineAnnealingLR(
             optimizer,
             T_max=t.train_iterations,
             **args
         )
     elif t.train_lr_scheduler == "cosine_annealing_with_restarts":
+        print("Using CosineAnnealingWarmRestarts")
         return CosineAnnealingWarmRestarts(
             optimizer,
             T_0=args.pop("T_0") if "T_0" in args else 10,
             **args
         )
     elif t.train_lr_scheduler == "exponential":
+        print("Using ExponentialLR")
         return ExponentialLR(
             optimizer,
             gamma=args.pop("gamma") if "gamma" in args else 0.9,
             **args
         )
     elif t.train_lr_scheduler == "step":
+        print("Using StepLR")
         return StepLR(
             optimizer,
             step_size=args.pop("step_size") if "step_size" in args else 10,
             **args
         )
     elif t.train_lr_scheduler == "multi_step":
+        print("Using MultiStepLR")
         return MultiStepLR(
             optimizer,
             milestones=args.pop("milestones") if "milestones" in args else [30, 60, 90],
             **args
         )
     elif t.train_lr_scheduler == "reduce_on_plateau":
+        print("Using ReduceLROnPlateau")
         return ReduceLROnPlateau(
             optimizer,
             mode='min',
             **args
         )
     elif t.train_lr_scheduler == "cyclic":
+        print("Using CyclicLR")
         return CyclicLR(
             optimizer,
             base_lr=args.pop("base_lr") if "base_lr" in args else  1e-5,
@@ -902,6 +909,7 @@ def load_lr_scheduler(t, optimizer):
             **args
         )
     elif t.train_lr_scheduler == "one_cycle":
+        print("Using OneCycleLR")
         return OneCycleLR(
             optimizer,
             max_lr=args.pop("max_lr") if "max_lr" in args else  1e-3,

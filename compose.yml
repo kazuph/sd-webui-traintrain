@@ -11,11 +11,15 @@ services:
       - NVIDIA_VISIBLE_DEVICES=0 # 使用するGPU ID (環境に合わせて変更)
       - HF_HOME=/app/cache # Hugging Face キャッシュディレクトリ
       - CC=/usr/bin/gcc # Cコンパイラのパスを実行時に設定
-    # ホストとの共有ボリューム (必要に応じてコメント解除・調整)
-    # volumes:
-    #   - ./inputs:/app/inputs:rw # 学習データ
-    #   - ./outputs:/app/outputs:rw # 生成物
-    #   - ./cache:/app/cache:rw # Hugging Face キャッシュ (ホストと共有する場合)
+    volumes:
+      # モデルファイルをコンテナ内の /models にマウント (読み取り専用)
+      - ${STABLE_DIFFUSION_MODEL_PATH}:/models/sd_xl_base_1.0.safetensors:ro
+      # inputs ディレクトリをコンテナ内の /app/inputs にマウント (読み取り専用)
+      - ./inputs:/app/inputs:ro
+      # outputs ディレクトリをコンテナ内の /app/outputs にマウント (読み書き可能)
+      - ./outputs:/app/outputs:rw
+      # 必要であればキャッシュもマウント (コメントアウト中)
+      # - ./cache:/app/cache:rw # Hugging Face キャッシュ (ホストと共有する場合)
     deploy:
       resources:
         reservations:
@@ -23,11 +27,3 @@ services:
               - driver: nvidia
                 device_ids: ['0'] # 使用するGPU ID (環境に合わせて変更)
                 capabilities: [gpu]
-    # command は Dockerfile の CMD を使用するため、通常は不要
-    # command: ["python", "cli.py", "--some-option"] # デバッグなどで上書きする場合
-
-# 不要になった名前付きボリューム定義を削除
-# volumes:
-#   python-packages:
-#     name: python-packages
-#     external: true
