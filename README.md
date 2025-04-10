@@ -1,3 +1,107 @@
+# CLI Usage
+
+## Using uv
+
+```bash
+uv venv
+uv sync
+uv run python cli.py --mode ADDifT --config presets/ADDifT_Action_XL.json --model <path_to_your_model> --orig_image inputs/<your_original_image> --targ_image inputs/<your_target_image> --output_name outputs/<your_output_name> --iterations 50 --save-overwrite
+```
+
+## Using Docker Compose
+
+First, build the image:
+```bash
+docker compose build
+```
+
+Then, run the training:
+```bash
+docker compose run --rm app python cli.py --mode ADDifT --config presets/ADDifT_Action_XL.json --model <path_to_your_model_in_container> --orig_image inputs/<your_original_image> --targ_image inputs/<your_target_image> --output_name outputs/<your_output_name> --iterations 50 --save-overwrite
+```
+
+**Note:** Replace placeholders like `<path_to_your_model>`, `<your_original_image>`, `<your_target_image>`, `<your_output_name>`, and `<path_to_your_model_in_container>` with your actual file paths and names.
+
+---
+
+## CLI Options
+
+Here is a list of all available command-line options. CLI arguments will override any corresponding settings provided in a JSON configuration file (`--config`).
+
+| Option                       | Description                                       | Type      | Default        | Notes                                                                 |
+| :--------------------------- | :------------------------------------------------ | :-------- | :------------- | :-------------------------------------------------------------------- |
+| `--mode`                     | Training mode.                                    | string    | (Required)     | Choices: `LoRA`, `iLECO`, `Difference`, `ADDifT`, `Multi-ADDifT`        |
+| `--model`                    | Path to the base model file (.safetensors or .ckpt). | string    | (Required)     |                                                                       |
+| `--output-name`              | Filename for the output LoRA (without extension). | string    | (Required)     | Corresponds to `save_lora_name` internally.                           |
+| `--data-dir`                 | Path to the directory containing training images. | string    | (Required for LoRA, Multi-ADDifT) | Corresponds to `lora_data_directory` internally.                      |
+| `--orig-prompt`              | Original prompt.                                  | string    | (Required for iLECO) |                                                                       |
+| `--targ-prompt`              | Target prompt.                                    | string    | (Required for iLECO) |                                                                       |
+| `--orig-image`               | Path to the original image.                       | string    | (Required for Difference, ADDifT) |                                                                       |
+| `--targ-image`               | Path to the target image.                         | string    | (Required for Difference, ADDifT) |                                                                       |
+| `--config`                   | Path to a JSON configuration file.                | string    | `None`         | Overrides default settings. CLI arguments override JSON values.       |
+| `--vae`                      | Path to the VAE file (optional).                  | string    | `None`         |                                                                       |
+| `--network-type`             | Network type.                                     | string    | `lierla`       | Choices: `lierla`, `c3lier`, `loha`. Overrides JSON.                  |
+| `--rank`                     | Network rank (dimension).                         | int       | `16`           | Corresponds to `network_rank`. Overrides JSON.                        |
+| `--alpha`                    | Network alpha (reduction width).                  | float     | `8.0`          | Corresponds to `network_alpha`. Overrides JSON.                       |
+| `--diff-target-name`         | Suffix for target images in Multi-ADDifT mode.    | string    | `""`           | Overrides JSON.                                                       |
+| `--lora-trigger-word`        | Trigger word prepended to captions.               | string    | `""`           | Overrides JSON.                                                       |
+| `--image-size`               | Training resolution (height, width).              | string    | `"512,512"`    | Comma-separated. Overrides JSON.                                      |
+| `--iterations`               | Number of training iterations.                    | int       | `1000`         | Corresponds to `train_iterations`. Overrides JSON.                    |
+| `--train-batch-size`         | Batch size for training.                          | int       | `2`            | Overrides JSON.                                                       |
+| `--lr`                       | Learning rate.                                    | float     | `1e-4`         | Corresponds to `train_learning_rate`. Overrides JSON.                 |
+| `--train-optimizer`          | Optimizer to use.                                 | string    | `AdamW`        | See `trainer.py` for choices. Overrides JSON.                         |
+| `--train-optimizer-settings` | Additional optimizer settings (key=value pairs).  | string    | `""`           | Semicolon or newline separated. e.g., "weight_decay=0.01". Overrides JSON. |
+| `--train-lr-scheduler`       | Learning rate scheduler.                          | string    | `cosine`       | See `trainer.py` for choices. Overrides JSON.                         |
+| `--train-lr-scheduler-settings` | Additional scheduler settings (key=value pairs). | string    | `""`           | Semicolon or newline separated. Overrides JSON.                       |
+| `--[no-]use-gradient-checkpointing` | Enable/disable gradient checkpointing.        | boolean   | `False`        | Overrides JSON.                                                       |
+| `--network-blocks`           | Specify layers to train (space-separated).        | list      | (All Blocks)   | Choices: `BASE`, `IN00`...`M00`...`OUT11`. Overrides JSON.           |
+| `--network-conv-rank`        | Convolutional layer rank (for c3lier, loha).      | int       | `0`            | `0` uses `network_rank`. Overrides JSON.                              |
+| `--network-conv-alpha`       | Convolutional layer alpha (for c3lier, loha).     | float     | `0.0`          | `0` uses `network_alpha`. Overrides JSON.                             |
+| `--network-resume`           | Path to LoRA file to resume training from.        | string    | `""`           | Overrides JSON.                                                       |
+| `--[no-]network-train-text-encoder` | Train the text encoder(s).                  | boolean   | `False`        | Overrides JSON.                                                       |
+| `--network-element`          | Detailed training target.                         | string    | `Full`         | Choices: `Full`, `CrossAttention`, `SelfAttention`. Overrides JSON.   |
+| `--network-strength`         | Network strength (usually 1.0).                   | float     | `1.0`          | Overrides JSON.                                                       |
+| `--train-loss-function`      | Loss function.                                    | string    | `MSE`          | Choices: `MSE`, `L1`, `Smooth-L1`. Overrides JSON.                    |
+| `--train-seed`               | Random seed for training (-1 for random).         | int       | `-1`           | Overrides JSON.                                                       |
+| `--train-min-timesteps`      | Minimum timestep for training.                    | int       | `0`            | Overrides JSON.                                                       |
+| `--train-max-timesteps`      | Maximum timestep for training.                    | int       | `1000`         | Overrides JSON.                                                       |
+| `--train-textencoder-learning-rate` | Learning rate for text encoder(s).          | float     | `None`         | If `None`, uses main `lr`. Overrides JSON.                            |
+| `--train-model-precision`    | Precision for non-training parts (UNet, VAE).     | string    | `fp16`         | Choices: `fp32`, `bf16`, `fp16`. Overrides JSON.                      |
+| `--train-lora-precision`     | Precision for LoRA weights during training.       | string    | `fp32`         | Choices: `fp32`, `bf16`, `fp16`. Overrides JSON.                      |
+| `--train-vae-precision`      | Precision for VAE during training.                | string    | `fp32`         | Choices: `fp32`, `bf16`, `fp16`. Overrides JSON.                      |
+| `--image-buckets-step`       | Step size for image bucketing resolution.         | int       | `256`          | Overrides JSON.                                                       |
+| `--image-num-multiply`       | Multiply dataset images (for small datasets).     | int       | `1`            | Overrides JSON.                                                       |
+| `--image-min-length`         | Minimum image side length for bucketing.          | int       | `512`          | Overrides JSON.                                                       |
+| `--image-max-ratio`          | Maximum aspect ratio allowed for bucketing.       | float     | `2.0`          | Overrides JSON.                                                       |
+| `--sub-image-num`            | Number of lower-resolution copies per image.      | int       | `0`            | Overrides JSON.                                                       |
+| `--[no-]image-mirroring`     | Horizontally flip images for augmentation.        | boolean   | `False`        | Overrides JSON.                                                       |
+| `--[no-]image-use-filename-as-tag` | Use filename (without ext) as tag if no caption. | boolean | `False`        | Overrides JSON.                                                       |
+| `--[no-]image-disable-upscale` | Disable upscaling images smaller than bucket size. | boolean | `False`        | Overrides JSON.                                                       |
+| `--[no-]image-use-transparent-background-ajust` | Adjust for transparent backgrounds. | boolean | `False`        | Overrides JSON.                                                       |
+| `--save-per-steps`           | Save LoRA every N steps (0 to disable).           | int       | `0`            | Overrides JSON.                                                       |
+| `--save-precision`           | Precision for saving the final LoRA file.         | string    | `fp16`         | Choices: `fp32`, `bf16`, `fp16`. Overrides JSON.                      |
+| `--[no-]save-overwrite`      | Overwrite existing LoRA file with the same name.  | boolean   | `False`        | Overrides JSON.                                                       |
+| `--[no-]save-as-json`        | Save training settings as a JSON file.            | boolean   | `False`        | Overrides JSON.                                                       |
+| `--[no-]diff-save-1st-pass`  | Save the copier LoRA in Difference mode.          | boolean   | `False`        | Overrides JSON.                                                       |
+| `--[no-]diff-1st-pass-only`  | Only train the copier LoRA in Difference mode.    | boolean   | `False`        | Overrides JSON.                                                       |
+| `--diff-load-1st-pass`       | Path to copier LoRA to load for Difference/ADDifT. | string    | `""`           | Overrides JSON.                                                       |
+| `--[no-]diff-revert-original-target` | Swap original and target images internally. | boolean | `False`        | Overrides JSON.                                                       |
+| `--[no-]diff-use-diff-mask`  | Use a difference mask during training.            | boolean   | `False`        | Overrides JSON.                                                       |
+| `--[no-]diff-use-fixed-noise`| Use fixed noise for Difference/ADDifT modes.      | boolean   | `False`        | Overrides JSON.                                                       |
+| `--diff-alt-ratio`           | Alternate ratio for Difference mode.              | float     | `1.0`          | Overrides JSON.                                                       |
+| `--train-lr-step-rules`      | Step rules for 'step' scheduler (e.g., "10,20").  | string    | `""`           | Overrides JSON.                                                       |
+| `--train-lr-warmup-steps`    | Number of warmup steps for LR scheduler.          | int       | `0`            | Overrides JSON.                                                       |
+| `--train-lr-scheduler-num-cycles` | Number of cycles for cosine restart schedulers. | int       | `1`            | Overrides JSON.                                                       |
+| `--train-lr-scheduler-power` | Power for polynomial LR scheduler.                | float     | `1.0`          | Overrides JSON.                                                       |
+| `--train-snr-gamma`          | SNR gamma value for timestep weighting (0-20).    | float     | `5.0`          | Overrides JSON.                                                       |
+| `--[no-]train-fixed-timsteps-in-batch` | Use fixed timesteps within a batch.     | boolean   | `False`        | Overrides JSON.                                                       |
+| `--[no-]logging-verbose`     | Output verbose logs to the console.               | boolean   | `False`        | Overrides JSON.                                                       |
+| `--[no-]logging-save-csv`    | Save training progress (step, loss, lr) to CSV.   | boolean   | `False`        | Overrides JSON.                                                       |
+| `--[no-]model-v-pred`        | Use v-prediction model (SD 2.x).                  | boolean   | `False`        | Overrides JSON.                                                       |
+| `--[no-]use-2nd-pass-settings` | Use separate settings for the 2nd pass (Difference). | boolean | `False`        | Overrides JSON.                                                       |
+
+---
+
 # TrainTrain
 - This is an extension for [AUTOMATIC1111's stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui).
 - You can create LoRA, iLECO, and differential LoRA.
