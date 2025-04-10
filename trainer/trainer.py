@@ -42,7 +42,110 @@ lora_dir = os.path.join(path_root.parent,"output") # Default output dir relative
 path_trainer = os.path.join(path_root, "trainer")
 # Note: Command line arguments will be handled by cli.py, replacing launch_utils.args
 
-all_configs = []
+# --- all_configs definition from WebUI (scripts/traintrain.py) ---
+# (注意: 実際のコードでは変数名やリストの内容が異なる可能性があるため、元のファイルで確認してください)
+# 以下は構造を示すための例です。
+NETWORK_TYPES = ["lierla", "c3lier","loha"] # 例
+NETWORK_DIMS = [str(2**x) for x in range(11)] # 例
+NETWORK_ALPHAS = [str(2**(x-5)) for x in range(16)] # 例
+NETWORK_ELEMENTS = ["Full", "CrossAttention", "SelfAttention"] # 例
+IMAGESTEPS = [str(x*64) for x in range(10)] # 例
+LOSS_FUNCTIONS = ["MSE", "L1", "Smooth-L1"] # 例
+SCHEDULERS = ["cosine_annealing", "cosine_annealing_with_restarts", "linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup", "piecewise_constant", "exponential", "step", "multi_step", "reduce_on_plateau", "cyclic", "one_cycle"] # 例
+PRECISION_TYPES = ["fp32", "bf16", "fp16"] # CLI版に合わせて簡略化 (float32などを削除)
+BLOCKID26=["BASE","IN00","IN01","IN02","IN03","IN04","IN05","IN06","IN07","IN08","IN09","IN10","IN11","M00","OUT00","OUT01","OUT02","OUT03","OUT04","OUT05","OUT06","OUT07","OUT08","OUT09","OUT10","OUT11"] # 例
+# 可視性フラグ (例) - CLIでは主にデフォルト値と型が重要
+ALL = [True,True,True,True,True,True]
+LORA = [True,False,False,False,False,False]
+# ... (他の可視性フラグ) ...
+DIFF2ND = [False,False,False,True,False,False] # use_2nd_pass_settings用
+
+# パラメータ定義 (元の scripts/traintrain.py の定義をコピー)
+network_type = ["network_type","DD",NETWORK_TYPES,NETWORK_TYPES[0],str,ALL]
+network_rank = ["network_rank","DD",NETWORK_DIMS[2:],"16",int,ALL]
+network_alpha = ["network_alpha","DD",NETWORK_ALPHAS,"8",float,ALL]
+lora_data_directory = ["lora_data_directory","TX",None,"", str, LORA] # 可視性フラグは調整が必要かも
+diff_target_name = ["diff_target_name","TX", None, "", str, LORA] # 可視性フラグは調整が必要かも
+lora_trigger_word = ["lora_trigger_word","TX",None,"", str, LORA] # 可視性フラグは調整が必要かも
+image_size = ["image_size(height, width)", "TX",None,"512,512",str,ALL] # デフォルト値を文字列に変更
+train_iterations = ["train_iterations","TX",None,1000,int,ALL]
+train_batch_size = ["train_batch_size", "TX",None,2,int,ALL]
+train_learning_rate = ["train_learning_rate","TX",None,"1e-4",float,ALL]
+train_optimizer =["train_optimizer","DD",OPTIMIZERS,OPTIMIZERS[0],str,ALL] # OPTIMIZERS は trainer.py で定義済み
+train_optimizer_settings = ["train_optimizer_settings", "TX",None,"",str,ALL]
+train_lr_scheduler =["train_lr_scheduler","DD",SCHEDULERS, "cosine",str,ALL]
+train_lr_scheduler_settings = ["train_lr_scheduler_settings", "TX",None,"",str,ALL]
+save_lora_name =  ["save_lora_name", "TX",None,"",str,ALL] # 可視性フラグは調整が必要かも
+use_gradient_checkpointing = ["use_gradient_checkpointing","CH",None,False,bool,ALL]
+network_blocks = ["network_blocks(BASE = TextEncoder)","CB",BLOCKID26,BLOCKID26,list,ALL]
+# --- オプションパラメータも同様に追加 ---
+network_conv_rank = ["network_conv_rank","DD",["0"] + NETWORK_DIMS[2:],"0",int,ALL]
+network_conv_alpha = ["network_conv_alpha","DD",["0"] + NETWORK_ALPHAS,"0",float,ALL]
+network_resume = ["network_resume","TX", None, "", str, LORA] # 可視性フラグは調整が必要かも
+network_train_text_encoder =  ["network_train_text_encoder", "CH",None,False,bool,LORA] # 可視性フラグは調整が必要かも
+network_element = ["network_element","DD",NETWORK_ELEMENTS,NETWORK_ELEMENTS[0],str,ALL] # デフォルト値を修正
+network_strength  = ["network_strength","TX", None, 1.0, float, ALL] # float型に変更
+train_loss_function =["train_loss_function","DD",LOSS_FUNCTIONS,"MSE",str,ALL]
+train_seed = ["train_seed", "TX",None,-1,int, ALL]
+train_min_timesteps = ["train_min_timesteps", "TX",None,0,int, ALL]
+train_max_timesteps = ["train_max_timesteps", "TX",None,1000,int, ALL]
+train_textencoder_learning_rate = ["train_textencoder_learning_rate","TX",None,"",float,LORA] # 可視性フラグは調整が必要かも
+train_model_precision = ["train_model_precision","DD",PRECISION_TYPES,"fp16",str,ALL] # choices を PRECISION_TYPES に変更
+train_lora_precision = ["train_lora_precision","DD",PRECISION_TYPES,"fp32",str,ALL] # choices を PRECISION_TYPES に変更
+train_VAE_precision = ["train_VAE_precision","DD",PRECISION_TYPES,"fp32",str,ALL] # choices を PRECISION_TYPES に変更
+image_buckets_step = ["image_buckets_step", "DD",IMAGESTEPS,"256",int,LORA] # 可視性フラグは調整が必要かも
+image_num_multiply = ["image_num_multiply", "TX",None,1,int,LORA] # 可視性フラグは調整が必要かも
+image_min_length = ["image_min_length", "TX",None,512,int,LORA] # 可視性フラグは調整が必要かも
+image_max_ratio = ["image_max_ratio", "TX",None,2.0,float,LORA] # float型に変更, 可視性フラグは調整が必要かも
+sub_image_num = ["sub_image_num", "TX",None,0,int,LORA] # 可視性フラグは調整が必要かも
+image_mirroring =  ["image_mirroring", "CH",None,False,bool,LORA] # 可視性フラグは調整が必要かも
+image_use_filename_as_tag =  ["image_use_filename_as_tag", "CH",None,False,bool,LORA] # 可視性フラグは調整が必要かも
+image_disable_upscale = ["image_disable_upscale", "CH",None,False,bool,LORA] # 可視性フラグは調整が必要かも
+image_use_transparent_background_ajust = ["image_use_transparent_background_ajust","CH",None,False,bool,ALL] # WebUI版から追加
+save_per_steps = ["save_per_steps", "TX",None,0,int,ALL]
+save_precision = ["save_precision","DD",PRECISION_TYPES,"fp16",str,ALL] # choices を PRECISION_TYPES に変更
+save_overwrite = ["save_overwrite", "CH",None,False,bool,ALL]
+save_as_json = ["save_as_json", "CH",None,False,bool,ALL] # 可視性フラグは調整が必要かも
+diff_save_1st_pass = ["diff_save_1st_pass", "CH",None,False,bool,ALL] # 可視性フラグは調整が必要かも
+diff_1st_pass_only = ["diff_1st_pass_only", "CH",None,False,bool,ALL] # 可視性フラグは調整が必要かも
+diff_load_1st_pass = ["diff_load_1st_pass","TX", None, "", str, ALL] # 可視性フラグは調整が必要かも
+diff_revert_original_target = ["diff_revert_original_target","CH", None, False, bool, ALL] # 可視性フラグは調整が必要かも
+diff_use_diff_mask = ["diff_use_diff_mask","CH", None, False, bool, ALL] # 可視性フラグは調整が必要かも
+diff_use_fixed_noise = ["diff_use_fixed_noise","CH", None, False, bool, ALL] # WebUI版から追加
+diff_alt_ratio  = ["diff_alt_ratio","TX",None,"1.0",float,ALL] # float型に変更, デフォルト値を文字列に
+train_lr_step_rules = ["train_lr_step_rules","TX",None,"",str,ALL]
+train_lr_warmup_steps = ["train_lr_warmup_steps","TX",None,0,int,ALL]
+train_lr_scheduler_num_cycles = ["train_lr_scheduler_num_cycles","TX",None,1,int,ALL]
+train_lr_scheduler_power = ["train_lr_scheduler_power","TX",None, 1.0, float,ALL]
+train_snr_gamma = ["train_snr_gamma","TX",None,5.0,float,ALL] # float型に変更
+train_fixed_timsteps_in_batch = ["train_fixed_timsteps_in_batch","CH",None,False,bool,ALL]
+logging_verbose = ["logging_verbose","CH",None,False,bool,ALL] # 可視性フラグは調整が必要かも
+# logging_save_csv のデフォルト値を修正 (Checkbox なので boolean)
+logging_save_csv = ["logging_save_csv","CH",None,False,bool,ALL] # デフォルトを False に
+model_v_pred = ["model_v_pred", "CH",None,False,bool,ALL]
+use_2nd_pass_settings = ["use_2nd_pass_settings", "CH", None, False, bool, DIFF2ND]
+
+# 結合
+all_configs = [
+    # 必須に近いもの
+    network_type, network_rank, network_alpha, lora_data_directory, diff_target_name, lora_trigger_word,
+    image_size, train_iterations, train_batch_size, train_learning_rate,
+    train_optimizer, train_optimizer_settings, train_lr_scheduler, train_lr_scheduler_settings, save_lora_name, use_gradient_checkpointing,
+    network_blocks,
+    # オプション
+    network_resume, network_strength, network_conv_rank, network_conv_alpha, network_element, network_train_text_encoder,
+    train_loss_function, train_seed, train_min_timesteps, train_max_timesteps, train_textencoder_learning_rate,
+    train_model_precision, train_lora_precision, train_VAE_precision,
+    image_buckets_step, image_num_multiply, image_min_length, image_max_ratio, sub_image_num, image_mirroring,
+    image_use_filename_as_tag, image_disable_upscale, image_use_transparent_background_ajust,
+    save_per_steps, save_precision, save_overwrite, save_as_json,
+    diff_save_1st_pass, diff_1st_pass_only, diff_load_1st_pass, diff_revert_original_target, diff_use_diff_mask, diff_use_fixed_noise, diff_alt_ratio,
+    train_lr_step_rules, train_lr_warmup_steps, train_lr_scheduler_num_cycles, train_lr_scheduler_power, train_snr_gamma, train_fixed_timsteps_in_batch,
+    logging_verbose, logging_save_csv, model_v_pred,
+    # 2nd pass 用フラグ
+    use_2nd_pass_settings
+]
+# --- End of all_configs definition ---
 
 PASS2 = "2nd pass"
 POs = ["came", "tiger", "adammini"]
@@ -73,72 +176,129 @@ class Trainer():
         self.count_dict = {}
         self.metadata = {}
 
-        # config_dict の内容を self の属性として設定
+        # all_configs からデフォルト値を設定
+        config_map = {conf[0]: conf for conf in all_configs}
+        for conf in all_configs:
+            key, _, _, default, dtype, _ = conf
+            attr_key = key.split("(")[0] # "(...)" を除去
+            # デフォルト値を正しい型に変換して設定
+            try:
+                if dtype == bool and isinstance(default, str):
+                    default_value = default.lower() == 'true'
+                elif dtype == list and isinstance(default, str): # リスト型の場合 (例: network_blocks)
+                    # 文字列からリストに変換するロジックが必要な場合がある
+                    # ここではデフォルトがリストであることを期待
+                    default_value = default if isinstance(default, list) else []
+                elif "precision" in attr_key:
+                    # 精度関連のデフォルト値は文字列のまま保持し、parse_precisionで変換
+                    default_value = parse_precision(default)
+                else:
+                    default_value = dtype(default)
+            except (ValueError, TypeError):
+                print(f"Warning: Could not convert default value '{default}' for key '{attr_key}' to type {dtype}. Using raw default.")
+                default_value = default # 変換失敗時はそのまま
+            setattr(self, attr_key, default_value)
+
+        # config_dict の内容で上書き & 型変換
         for key, value in config_dict.items():
-            # 特殊なキー名や型変換が必要な場合はここで処理
-            # 例: network_blocks(BASE = TextEncoder) -> network_blocks
-            attr_key = key.split("(")[0]
+            # config_dict のキーも "(...)" を除去して照合
+            lookup_key = key.split("(")[0]
+            conf = config_map.get(key) or config_map.get(lookup_key) # 元のキー or 除去後のキーで検索
 
-            # 型変換 (必要に応じて追加) - all_configs がないので推測または固定
-            # image_size は文字列のまま保持するため、ここでは変換しない
-            if isinstance(value, str) and attr_key != 'image_size':
-                # 数値に変換できそうなものは試みる
-                if value.isdigit():
-                    try: value = int(value)
-                    except ValueError: pass # 変換失敗時は文字列のまま
-                elif '.' in value and all(c.isdigit() or c == '.' for c in value) and value.count('.') == 1:
-                     try: value = float(value)
-                     except ValueError: pass # 変換失敗時は文字列のまま
-                # 真偽値
-                elif value.lower() == 'true': value = True
-                elif value.lower() == 'false': value = False
+            if conf:
+                conf_key, _, _, _, dtype, _ = conf # all_configs から取得したキー名を使う
+                attr_key = conf_key.split("(")[0] # 設定する属性名も all_configs のキーから取得
 
-            # VAE precision など、特定のキーに対する処理
-            if "precision" in attr_key:
-                 if attr_key == "train_model_precision" and value == "fp8":
-                     self.use_8bit = True
-                     print("Use 8bit Model Precision")
-                 value = parse_precision(value) # parse_precision を使う
+                try:
+                    # 型変換ロジック
+                    if dtype == bool:
+                        if isinstance(value, str):
+                            processed_value = value.lower() == 'true'
+                        else:
+                            processed_value = bool(value)
+                    elif dtype == list:
+                        # 文字列で渡された場合、カンマ区切りなどでリストに変換する処理が必要かも
+                        if isinstance(value, str):
+                             # 簡単なカンマ区切りリストのパース (必要に応じて調整)
+                             processed_value = [item.strip() for item in value.split(',') if item.strip()]
+                        elif isinstance(value, list):
+                             processed_value = value
+                        else:
+                             print(f"Warning: Cannot convert value '{value}' for key '{attr_key}' to list. Using empty list.")
+                             processed_value = [] # 不明な場合は空リスト
+                    elif "precision" in attr_key:
+                        processed_value = parse_precision(value) # 精度は parse_precision で処理
+                        if attr_key == "train_model_precision" and value == "fp8":
+                            self.use_8bit = True
+                            print("Use 8bit Model Precision")
+                    elif attr_key == "train_optimizer_settings" or attr_key == "train_lr_scheduler_settings":
+                        # Optimizer settings の処理 (setpass から移動)
+                        dvalue = {}
+                        if value is not None and isinstance(value, str) and len(value.strip()) > 0:
+                            val_str = value.replace(" ", "").replace(";","\n")
+                            args_list = val_str.split("\n")
+                            for arg in args_list:
+                                if "=" in arg:
+                                    k, v_str = arg.split("=", 1)
+                                    try:
+                                        v = ast.literal_eval(v_str)
+                                    except:
+                                        v = v_str # 評価できない場合は文字列のまま
+                                    dvalue[k.strip()] = v
+                        processed_value = dvalue
+                    elif attr_key == "train_optimizer" and isinstance(value, str):
+                        processed_value = value.lower() # Optimizer 名を小文字に
+                    else:
+                        # 基本的な型変換
+                        processed_value = dtype(value)
 
-            # Optimizer settings の処理 (setpass から移動)
-            if attr_key == "train_optimizer_settings" or attr_key == "train_lr_scheduler_settings":
-                 dvalue = {}
-                 if value is not None and isinstance(value, str) and len(value.strip()) > 0:
-                     value = value.replace(" ", "").replace(";","\n")
-                     args_list = value.split("\n")
-                     for arg in args_list:
-                         if "=" in arg:
-                             k, v = arg.split("=", 1)
-                             try: v = ast.literal_eval(v)
-                             except: pass # 評価できない場合は文字列のまま
-                             dvalue[k] = v
-                 value = dvalue
-            elif attr_key == "train_optimizer" and isinstance(value, str):
-                 value = value.lower() # Optimizer 名を小文字に
-
-            setattr(self, attr_key, value)
+                    setattr(self, attr_key, processed_value)
+                except (ValueError, TypeError) as e:
+                    print(f"Warning: Could not convert value '{value}' for key '{attr_key}' to type {dtype}. Using raw value. Error: {e}")
+                    setattr(self, attr_key, value) # 変換失敗時は元の値を設定
+            else:
+                # all_configs にないキーはそのまま設定 (将来的な拡張用など)
+                # この場合も attr_key は "(...)" を除去したものを使う
+                attr_key_fallback = key.split("(")[0]
+                setattr(self, attr_key_fallback, value)
 
         # --- 以前 __init__ や setpass で行っていた初期化や設定 ---
         self.save_dir = lora_dir # デフォルトの出力先
         if not os.path.exists(lora_dir):
             os.makedirs(lora_dir)
 
-        # image_size の処理 (デフォルト値や分割)
-        if not hasattr(self, 'image_size') or not self.image_size:
-             self.image_size = "512,512" # デフォルト値
+        # image_size の処理 (デフォルト値は all_configs で設定済み)
+        # 文字列からリストへの変換とソート
         if isinstance(self.image_size, str):
-             self.image_size = [int(x) for x in self.image_size.split(",")]
+             try:
+                 self.image_size = [int(x.strip()) for x in self.image_size.split(",")]
+             except ValueError:
+                 print(f"Warning: Invalid image_size format '{self.image_size}'. Using default [512, 512].")
+                 # all_configs からデフォルト値を取得し直す
+                 img_size_conf = config_map.get("image_size(height, width)")
+                 default_img_size_str = img_size_conf[3] if img_size_conf else "512,512"
+                 try:
+                     self.image_size = [int(x.strip()) for x in default_img_size_str.split(",")]
+                 except ValueError:
+                     self.image_size = [512, 512] # 再度フォールバック
         if len(self.image_size) == 1:
              self.image_size = self.image_size * 2
         self.image_size.sort()
 
-        # その他のデフォルト値や初期化
+        # その他の初期化 (デフォルト値は all_configs で設定済み)
+        self.total_images = 0
+        # save_1st_pass は diff_1st_pass_only によって上書きされる可能性がある
+        if getattr(self, 'diff_1st_pass_only', False):
+             self.save_1st_pass = True # diff_1st_pass_only が True なら save_1st_pass も True に
+        else:
+             # diff_1st_pass_only が False の場合、diff_save_1st_pass の値を使う
+             # diff_save_1st_pass は all_configs でデフォルト値が設定されているはず
+             self.save_1st_pass = getattr(self, 'diff_save_1st_pass', False)
+
+        # gradient_accumulation_steps と train_repeat は all_configs にないので getattr で取得
+        # TODO: all_configs に gradient_accumulation_steps と train_repeat を追加検討
         self.gradient_accumulation_steps = getattr(self, 'gradient_accumulation_steps', 1)
         self.train_repeat = getattr(self, 'train_repeat', 1)
-        self.total_images = 0
-        self.save_1st_pass = getattr(self, 'save_1st_pass', False)
-        if getattr(self, 'diff_1st_pass_only', False): # diff_1st_pass_only を参照
-             self.save_1st_pass = True
 
         # プロンプトと画像の取得 (config_dict から)
         self.prompts = [
@@ -348,23 +508,107 @@ def import_json(name, preset = False, cli = False):
     with open(filepath, 'r', encoding='utf-8') as file:
         data = json.load(file)
     
-    def setconfigs(data, output):
-        for key, gtype ,_ ,default , dtype, _ in all_configs:
-            if key in data:
-                if key == "train_optimizer":
-                    for optim in OPTIMIZERS:
-                        if data[key].lower() == optim.lower():
-                            data[key] = optim 
-                if key == PASS2: continue
-                if gtype == "DD" or "learning rate" in key:
-                    dtype = str
+    # all_configs を参照して設定を読み込むヘルパー関数
+    def setconfigs_from_json(json_data, config_list):
+        output_dict = {}
+        config_map = {conf[0]: conf for conf in config_list} # キーで検索できるようにマップ作成
+
+        for conf in config_list:
+            key, _, _, default, dtype, _ = conf
+            attr_key = key.split("(")[0] # "(...)" を除去
+            value = json_data.get(key) # JSONから値を取得
+
+            if value is not None:
+                # JSONに値が存在する場合、型変換を試みる
                 try:
-                    output.append(dtype(data[key]))
-                except:
-                    output.append(default)
+                    if dtype == bool:
+                        if isinstance(value, str):
+                            processed_value = value.lower() == 'true'
+                        else:
+                            processed_value = bool(value)
+                    elif dtype == list:
+                         if isinstance(value, str):
+                             processed_value = [item.strip() for item in value.split(',') if item.strip()]
+                         elif isinstance(value, list):
+                             processed_value = value
+                         else:
+                             processed_value = default # 不明な場合はデフォルト
+                    elif "precision" in attr_key:
+                        # 精度関連は文字列のまま保持 (Trainer.__init__でtorch.dtypeに変換)
+                        processed_value = str(value)
+                    elif attr_key == "train_optimizer_settings" or attr_key == "train_lr_scheduler_settings":
+                        # 文字列で保存されているはずなので、そのまま保持 (Trainer.__init__で辞書に変換)
+                        processed_value = value if isinstance(value, str) else ""
+                    elif attr_key == "train_optimizer":
+                         # OPTIMIZERS リストと比較して正式名称に変換
+                         found_optim = default # デフォルト値で初期化
+                         if isinstance(value, str):
+                              for optim in OPTIMIZERS:
+                                   if value.lower() == optim.lower():
+                                        found_optim = optim
+                                        break
+                         processed_value = found_optim
+                    else:
+                        processed_value = dtype(value) # 基本的な型変換
+                    output_dict[key] = processed_value
+                except (ValueError, TypeError):
+                    print(f"Warning: Could not convert JSON value '{value}' for key '{key}' to type {dtype}. Using default.")
+                    # デフォルト値を正しい型に変換して設定
+                    try:
+                        if dtype == bool and isinstance(default, str):
+                            default_value = default.lower() == 'true'
+                        elif dtype == list and isinstance(default, str):
+                            default_value = default if isinstance(default, list) else []
+                        elif "precision" in attr_key:
+                            default_value = str(default) # 文字列として保持
+                        else:
+                            default_value = dtype(default)
+                    except (ValueError, TypeError):
+                         default_value = default # 再度失敗したらそのまま
+                    output_dict[key] = default_value
             else:
-                output.append(default)
-    setconfigs(data, output)
+                # JSONに値が存在しない場合はデフォルト値を使用 (正しい型で)
+                try:
+                    if dtype == bool and isinstance(default, str):
+                        default_value = default.lower() == 'true'
+                    elif dtype == list and isinstance(default, str):
+                        default_value = default if isinstance(default, list) else []
+                    elif "precision" in attr_key:
+                        default_value = str(default) # 文字列として保持
+                    else:
+                        default_value = dtype(default)
+                except (ValueError, TypeError):
+                     default_value = default # 再度失敗したらそのまま
+                output_dict[key] = default_value
+        return output_dict
+
+    # JSONデータから設定を読み込む
+    config_data = setconfigs_from_json(data, all_configs)
+
+    # 2nd pass の設定があれば上書き
+    if PASS2 in data and data[PASS2] and isinstance(data[PASS2], dict):
+        second_pass_data = setconfigs_from_json(data[PASS2], all_configs)
+        # 2nd pass 用のキーを生成してマージ (例: "train_iterations_2nd_pass")
+        # この部分はWebUI版の挙動に合わせる必要あり。現状は単純上書き。
+        # TODO: 2nd pass のキー命名規則を確認し、適切にマージする
+        # config_data.update(second_pass_data) # 単純上書きは問題を起こす可能性があるのでコメントアウト
+        print("Warning: 2nd pass settings found in JSON but merging logic is not fully implemented yet.")
+
+
+    # プロンプトと画像パスを追加
+    config_data["original prompt"] = data.get("original prompt", "")
+    config_data["target prompt"] = data.get("target prompt", "")
+    config_data["neg_prompt"] = data.get("neg_prompt", "") # neg_prompt も追加
+    if cli:
+        config_data["original image"] = data.get("original image", "")
+        config_data["target image"] = data.get("target image", "")
+
+    # mode, model, vae を追加
+    config_data["mode"] = data.get("mode", "LoRA")
+    config_data["model"] = data.get("model", None)
+    config_data["vae"] = data.get("vae", None)
+
+    return config_data # 辞書形式で返す
 
     if PASS2 in data and data[PASS2]:
         setconfigs(data[PASS2], output)

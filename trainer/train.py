@@ -540,7 +540,7 @@ def train_diff2(t):
                 orig_noise_pred = t.unet(orig_noisy_latents, timesteps, orig_conds1, added_cond_kwargs = orig_added_cond_kwargs).sample
             
             # 乗数を小さくして数値安定性を試す (0.25 -> 0.1)
-            network.set_multiplier(0.1 if turn else - 0.1 * abs(t.diff_alt_ratio))
+            network.set_multiplier(0.25 if turn else - 0.25 * abs(t.diff_alt_ratio)) # 0.25に戻す
 
             with t.a.autocast():
                 targ_noise_pred = t.unet(targ_noisy_latents, timesteps, targ_conds1, added_cond_kwargs = targ_added_cond_kwargs).sample
@@ -711,10 +711,10 @@ def image2latent(t,image):
     image = torch.from_numpy(image).unsqueeze(0)
     image = image * 2 - 1
     # train_VAE_precision の代わりに train_model_precision を使用
-    image = image.to(CUDA,dtype=t.train_model_precision)
+    image = image.to(CUDA,dtype=t.train_VAE_precision) # train_VAE_precision を使うように戻す
     with torch.no_grad():
         # train_VAE_precision の代わりに train_model_precision を使用
-        t.vae.to(dtype=t.train_model_precision)
+        t.vae.to(dtype=t.train_VAE_precision) # train_VAE_precision を使うように戻す
         latent = t.vae.encode(image)
         if isinstance(latent, torch.Tensor):
             return ((latent - t.vae_shift_factor) * t.vae_scale_factor)
