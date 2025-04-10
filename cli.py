@@ -95,9 +95,7 @@ def parse_args():
         parser.add_argument(f"--{cli_arg_name.replace('_', '-')}", **arg_params)
         added_args.add(cli_arg_name)
 
-    # save_overwrite を明示的に追加
-    parser.add_argument("--save-overwrite", dest="save_overwrite", action="store_true", default=None, help="Overwrite existing LoRA file if it exists.")
-    added_args.add('save_overwrite') # added_args にも追加して重複定義を防ぐ
+    # save_overwrite は all_configs から動的に生成されるため、ここでの明示的な追加は不要
 
 
     args = parser.parse_args()
@@ -153,14 +151,11 @@ def merge_configs(cli_args_dict, config_path):
                  merged_config[key] = value # マッピング外の引数も念のため保持
 
     # --- デフォルト値の設定 (JSONにもCLIにもない場合) ---
-    # Trainerクラスの初期化でデフォルト値が設定されるはずだが、念のため主要なものを設定
-    for conf in all_configs:
-         key = conf[0].split("(")[0]
-         if key not in merged_config:
-              # Trainerのデフォルト値を使うべきだが、ここではNoneにしておく
-              # Trainer側でNoneを適切に処理する必要がある
-              merged_config[key] = None # または conf[3] を使うか検討
-
+    # このブロックは Trainer.__init__ で all_configs を使ってデフォルト値を設定するため不要。削除する。
+    # for conf in all_configs:
+    #      key = conf[0].split("(")[0]
+    #      if key not in merged_config:
+    #           merged_config[key] = None
     # --- モード別必須パラメータの最終チェック ---
     # (Trainerクラス内でもチェックされるはずだが、早期にエラーを出す)
     mode = merged_config.get('mode')

@@ -42,6 +42,17 @@ lora_dir = os.path.join(path_root.parent,"output") # Default output dir relative
 path_trainer = os.path.join(path_root, "trainer")
 # Note: Command line arguments will be handled by cli.py, replacing launch_utils.args
 
+# --- Define constants used in all_configs first ---
+SEP = "--------------------------"
+OPTIMIZERS = ["AdamW", "AdamW8bit", "AdaFactor", "Lion", "Prodigy", SEP,
+              "DadaptAdam","DadaptLion", "DAdaptAdaGrad", "DAdaptAdan", "DAdaptSGD",SEP,
+               "Adam8bit", "SGDNesterov8bit", "Lion8bit", "PagedAdamW8bit", "PagedLion8bit",  SEP,
+               "RAdamScheduleFree", "AdamWScheduleFree", "SGDScheduleFree", SEP,
+               "CAME", "Tiger", "AdamMini",
+               "PagedAdamW", "PagedAdamW32bit", "SGDNesterov", "Adam",]
+POs = ["came", "tiger", "adammini"]
+PASS2 = "2nd pass"
+# --- End of constants definition ---
 # --- all_configs definition from WebUI (scripts/traintrain.py) ---
 # (注意: 実際のコードでは変数名やリストの内容が異なる可能性があるため、元のファイルで確認してください)
 # 以下は構造を示すための例です。
@@ -147,20 +158,9 @@ all_configs = [
 ]
 # --- End of all_configs definition ---
 
-PASS2 = "2nd pass"
-POs = ["came", "tiger", "adammini"]
-
 jsonspath = os.path.join(path_root,"jsons")
 logspath = os.path.join(path_root,"logs")
 presetspath = os.path.join(path_root,"presets")
-
-SEP = "--------------------------"
-OPTIMIZERS = ["AdamW", "AdamW8bit", "AdaFactor", "Lion", "Prodigy", SEP,
-              "DadaptAdam","DadaptLion", "DAdaptAdaGrad", "DAdaptAdan", "DAdaptSGD",SEP,
-               "Adam8bit", "SGDNesterov8bit", "Lion8bit", "PagedAdamW8bit", "PagedLion8bit",  SEP, 
-               "RAdamScheduleFree", "AdamWScheduleFree", "SGDScheduleFree", SEP, 
-               "CAME", "Tiger", "AdamMini",
-               "PagedAdamW", "PagedAdamW32bit", "SGDNesterov", "Adam",]
 
 class Trainer():
     # values を config_dict に変更
@@ -227,10 +227,31 @@ class Trainer():
                              print(f"Warning: Cannot convert value '{value}' for key '{attr_key}' to list. Using empty list.")
                              processed_value = [] # 不明な場合は空リスト
                     elif "precision" in attr_key:
-                        processed_value = parse_precision(value) # 精度は parse_precision で処理
-                        if attr_key == "train_model_precision" and value == "fp8":
-                            self.use_8bit = True
-                            print("Use 8bit Model Precision")
+                        if value is not None: # 値が None でない場合のみ parse_precision を呼ぶ
+                             processed_value = parse_precision(value)
+                             if attr_key == "train_model_precision" and value == "fp8":
+                                 self.use_8bit = True
+                                 print("Use 8bit Model Precision")
+                        else:
+                             # value が None の場合は、all_configs から設定されたデフォルト値 (parse_precision 適用済み) を使う
+                             # getattr で現在の値を取得し、それが None ならデフォルトを使う（念のため）
+                             current_value = getattr(self, attr_key, None)
+                             if current_value is None:
+                                  # all_configs からデフォルト値を取得し直して parse_precision を適用
+                                  default_conf = config_map.get(conf_key)
+                                  if default_conf:
+                                       default_precision_str = default_conf[3]
+                                       try:
+                                            processed_value = parse_precision(default_precision_str)
+                                            print(f"Warning: '{attr_key}' was None, using default parsed value: {processed_value}")
+                                       except ValueError:
+                                            print(f"Error: Could not parse default precision '{default_precision_str}' for '{attr_key}'.")
+                                            processed_value = torch.float32 # フォールバック
+                                  else:
+                                       print(f"Error: Could not find default config for '{attr_key}'. Using fp32 as fallback.")
+                                       processed_value = torch.float32 # フォールバック
+                             else:
+                                  processed_value = current_value # 既に設定されているデフォルト値を使う
                     elif attr_key == "train_optimizer_settings" or attr_key == "train_lr_scheduler_settings":
                         # Optimizer settings の処理 (setpass から移動)
                         dvalue = {}
