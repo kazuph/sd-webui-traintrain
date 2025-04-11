@@ -37,8 +37,19 @@ from diffusers import (
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 # Standalone mode assumed for CLI conversion
-path_root = Path(__file__).parent.parent # Assumes trainer.py is in trainer/ directory
-lora_dir = os.path.join(path_root.parent,"output") # Default output dir relative to project root
+# Determine if running inside a Docker container by checking for the existence of /app
+is_in_docker = os.path.exists('/app')
+
+if is_in_docker:
+    # Inside Docker container
+    path_root = Path('/app') # Define path_root for consistency if needed later
+    lora_dir = "/app/outputs" # Set output dir inside the container's working directory
+else:
+    # Running on host
+    path_root = Path(__file__).parent.parent # Project root
+    lora_dir = os.path.join(path_root, "outputs") # outputs dir relative to project root
+
+# path_trainer depends on path_root
 path_trainer = os.path.join(path_root, "trainer")
 # Note: Command line arguments will be handled by cli.py, replacing launch_utils.args
 

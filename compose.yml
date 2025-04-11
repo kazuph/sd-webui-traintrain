@@ -18,7 +18,7 @@ services:
       - ${STABLE_DIFFUSION_MODEL_DIR}/${STABLE_DIFFUSION_MODEL_FILENAME}:/models/${STABLE_DIFFUSION_MODEL_FILENAME}:ro
       # inputs ディレクトリをコンテナ内の /app/inputs にマウント (読み取り専用)
       - ./inputs:/app/inputs:ro
-      # outputs ディレクトリをコンテナ内の /app/outputs にマウント (読み書き可能)
+      # outputs ディレクトリをコンテナ内の /outputs にマウント (読み書き可能)
       - ./outputs:/app/outputs:rw
       # 必要であればキャッシュもマウント (コメントアウト中)
       # - ./cache:/app/cache:rw # Hugging Face キャッシュ (ホストと共有する場合)
